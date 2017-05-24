@@ -16,6 +16,6 @@ Cute is the implementation of an `executor` meant for understanding Futures. It 
 Let's start with a little bit of motivational theory, though.
 
 [crates]: https://crates.io
-[cpupool]: 
-[tokio]: 
-[futures]:
+[cpupool]: https://docs.rs/futures-cpupool/0.1/futures_cpupool/
+[tokio]: https://tokio.rs/
+[futures]: https://docs.rs/futures/0.1/futures/
