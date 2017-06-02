@@ -43,8 +43,66 @@ fn do_stuff() -> Result<T, E> {
 }
 ```
 
-You can call that at any time, so you are in full control on when you call it. But here's the problem: the moment you call it, you give up control.
+You can call that at any time, so you are in full control on when you call it. But here's the problem: the moment you call it, you transfer control to the called function. This is independent of the style of function you use, closure have the same issue.
 
+Speaking in terms of time again, we can only take action _before_ calling the function or _after_ the function returned. This is not desireable, as it takes from us the ability to do something _while_ it runs. When working with parallel code, this would take from us the ability to start a parallel task while the first runs (because we gave away control).
+
+This is the moment where we could reach for [threads][threads]. But threads are a very specific concurrency primitive and we said that we are searching for an abstraction.
+
+What we are searching is something that represents ongoing work towards a result in the future. Whenever we say `something` in Rust, we almost always mean a trait. Let's start with an incomplete definition of the `Future` trait:
+
+```rust
+trait Future {
+    type Item;
+    type Error;
+    
+    fn wait(self) -> Result<Self::Item, Self::Error>;
+}
+```
+
+Looking at it closely, we see the following: it is generic over two types, the `Item` and the `Error`. This closely resembles `Result`, and unsurprisingly, they end up in the Result that `wait(self)` returns. `wait(self)` must be explained: calling this method makes the caller wait until a `Future` has run to succession and returns the fruits of this computation as a `Result`. Calling `wait` _consumes_ the future, it cannot be used afterwards. 
+
+Another curious symmetry is that the first associated type is called `Item`. There's another trait in Rust that uses this terminology: `Iterator`. The trait `Iterator` - in contrast to the value `Result` - also produces values based on given computation when `next()` is called.
+
+There is a final piece missing: a way to check the Future for progress and retrieving its result, _without_ resorting to waiting for it to end. This process is polling.
+
+## Poll
+
+The final important method of a future is `poll()`. Its signature is as follows:
+
+```rust
+fn poll(&mut self) -> Poll<Self::Item, Self::Error>;
+```
+
+`Poll` is a type alias, defined as:
+
+```rust
+type Poll<T, E> = Result<Async<T>, Error>;
+```
+
+where `Async` is:
+
+
+```rust
+//TODO: auf Korrektheit checken
+enum Async {
+    Waiting,
+    Finished(T)
+}
+```
+
+Every call to `poll()` can result in one of these three cases:
+
+1. An Error occurred. The Future has stopped running.
+2. The Result is `Ok`, but wrapping `Async::Waiting`. The Future is still running and cannot give a result yet.
+3. The Result is `Ok`, wrapping `Async::Finished`. The Future finished executing and the value can be read.
+
+Note that calling `poll` after case 3 happened is undefined behaviour. We'll explain why later.
+
+## Conclusion
+
+Deriving generic interface over computation isn't too hard. Working from `Result`, we searched for something that expresses working towards `Result` available _sometime later_. We then defined a way to force that computation to run to succession: `wait`. From there, we added a way to inspect a running computation: `poll`. 
 
 [road-to-futures]
 [understanding-computation]
+[threads]
